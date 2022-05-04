@@ -13,7 +13,7 @@ class OS():
             "medium": [],
             "low": []
         }
-        self.quantum = 0
+        self.quantum = 2
         self.global_time = 0
 
     def run_process(self, process: Process):
@@ -72,19 +72,29 @@ class OS():
                         process.state = State.RUNNING
                         break
                     else:
+                        process = None
                         continue
                 else:
                     continue
             
+
             ## Contar quantum com o processo corrente
-            for i in range(self.quantum):
+            if process:
+                for i in range(self.quantum):
+                    if process.state.value == State.BLOCKED.value:
+                        #chama função que decrementa
+                        #verificar se chegou em zero o elapsed time
+                        #se sim, coloca em ready da um break (se sim ou se não)
+                        pass
+                    self.run_process(process)
+                    self.global_time += 1
+            else:
                 self.global_time += 1
-                self.run_process(process)
 
 
 if __name__ == "__main__":
     os_ = OS()
-    process = 'p1.txt HIGH 10, p2.txt MEDIUM 2, p2.txt MEDIUM 2'
+    process = 'p1.txt HIGH 10, p2.txt MEDIUM 2'
 
     os_.read_processes(process)
     os_.exec_processes()
