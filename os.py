@@ -82,19 +82,13 @@ class OS():
 
 
     def __print_queues(self):
-        time.sleep(0.5)
-        os.system('cls' if os.name == 'nt' else 'clear')
-        biggest = 0
+        time.sleep(1)
+        os.system('cls' if os.name == 'nt' else 'clear') #clear console
+        biggest = len(f"| {State.BLOCKED_SUSPENDED.value} {self.p_list} |")
         for state in State:
-            process_list_str = ""
-            processes_in_state = filter(lambda p : p.state == state, self.p_list)
-            for process in processes_in_state:
-                process_list_str += f"PID {process.pid} ({process.priority}), "
-            print_str = f"| {state.value} Queue: [{process_list_str[:-2]}]"
-            space_plus = " " * (biggest - len(print_str)-1)
-            print_str += f"{space_plus}|"
-            if len(print_str) > biggest:
-                biggest = len(print_str)
+            processes_in_state = list(filter(lambda p : p.state == state, self.p_list))
+            print_str = f"| {state.value} Queue: {processes_in_state}"
+            print_str += f'{" " * (biggest - len(print_str)-1)}|' # output prettier
             line = "-" * biggest
             print(line)
             print(print_str)
@@ -106,7 +100,7 @@ class OS():
             process = None
             for priority, queue in self.queues.items():
                 if queue:
-                    process = self.queues[priority][0]
+                    process = self.queues[priority].pop(0)
                     if process.arrival_time <= self.global_time:
                         process.state = State.RUNNING
                         break
@@ -127,7 +121,8 @@ class OS():
                         pass
                     self.run_process(process)
                     self.global_time += 1
-                # process.state = State.
+                process.state = State.EXIT
+                # self.queues[process.priority].append(process)
             else:
                 self.global_time += 1
 
