@@ -29,13 +29,31 @@ class OS():
         code_string = code_string.strip()
         labels = {}
         instructions = []
-
-        for code in code_string.split('\n'):
+        i = 0
+        code_lines = code_string.split('\n')
+        
+        while i < len(code_lines):
+            code = code_lines[i].strip()
             if ':' in code:
                 label, code = code.split(':')
-                labels[label.strip()] = code.strip()
+                label = label.strip()
+                code = code.strip()
+                instructions.append(label)
+                labels[label] = []
+                if code:
+                    labels[label].append(code)
+                    i += 1
+                else:
+                    i+= 1
+                    while i < len(code_lines):
+                        code = code_lines[i].strip()
+                        if ":" in code:
+                            break
+                        labels[label].append(code)
+                        i += 1
                 continue
-            instructions.append(code.strip())
+            instructions.append(code)
+            i += 1
 
         return instructions, labels
 
@@ -80,7 +98,6 @@ class OS():
     def __do_state_change(process, state):
         pass
 
-
     def __print_queues(self):
         time.sleep(1)
         os.system('cls' if os.name == 'nt' else 'clear') #clear console
@@ -118,7 +135,7 @@ class OS():
                         #chama função que decrementa
                         #verificar se chegou em zero o elapsed time
                         #se sim, coloca em ready da um break (se sim ou se não)
-                        pass
+                        break
                     self.run_process(process)
                     self.global_time += 1
                 process.state = State.EXIT
