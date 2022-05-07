@@ -1,0 +1,29 @@
+.code
+  load controle
+  syscall 2
+  store controle
+loop:
+  BRZERO fim
+  load a
+  add b
+  store aux
+  load b
+  store a
+  load aux
+  store b
+  load controle
+  sub #1
+  store controle
+  BRANY loop
+fim:
+  load b
+  syscall 1
+  syscall 0
+.endcode
+
+.data
+  a 0
+  b 1
+  controle 0
+  aux 0
+.enddata
