@@ -25,3 +25,6 @@ class Process():
 
     def __str__(self):
         return f"PID {self.pid} ({self.priority})"
+
+    def __repr__(self):
+        return f"PID {self.pid} ({self.priority})"
