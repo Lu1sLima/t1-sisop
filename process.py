@@ -16,9 +16,13 @@ class Process():
         self.data = data
         self.labels = labels
         self.state = state
-        self.last_pc = -1
+        self.last_pc = 0
+        self.last_label_pc = 0 
+        self.last_label = None
         self.priority = priority
         self.arrival_time = arrival_time
+        self.last_acc = None
+        self.time_blocked = -1
 
     def __eq__(self, other):
         return self.pid == other.pid
@@ -28,3 +32,4 @@ class Process():
 
     def __repr__(self):
         return f"PID {self.pid} ({self.priority})"
+

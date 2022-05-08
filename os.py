@@ -1,16 +1,20 @@
+from platform import processor
 import re
 import sys
 import time
 import os
 import json
+from random import randint
 
 from process import Process, State
 from typing import List
 
 class OS():
+    
     def __init__(self):
         self.acc: float = 0.0
         self.pc: int = None
+        self.mneumonics = self.load_mnemonics()
         self.queues = {
             "HIGH": [],
             "MEDIUM": [],
@@ -22,8 +26,29 @@ class OS():
         self.p_list = []
 
     def run_process(self, process: Process):
-        # Aqui de fato rodar as instruções dos processos!
-        pass
+        # Aqui de fato rodar a instru dos processos!
+        pc = process.last_pc
+        temp_instruction = process.instructions[pc]
+        if self.__is_label(temp_instruction):
+            process.last_label = temp_instruction
+        
+        label, label_pc = process.last_label, process.last_label_pc
+
+        if label:
+            if label_pc < len(process.labels[label]):
+                instruction = process.labels[label][label_pc]
+                process.last_label_pc += 1
+            else:
+                label = None
+                process.last_label = None
+                process.last_label_pc = 0
+                process.last_pc += 1
+                instruction = process.instructions[process.last_pc]
+        else:
+            instruction = process.instructions[pc]
+            process.last_pc += 1
+        
+        self.exec_instruction(process, instruction)
 
     def __parse_code(self, code_string: str) -> List[str]:
         code_string = code_string.strip()
@@ -94,6 +119,19 @@ class OS():
                 self.queues[priority].append(process)
                 self.p_list.append(process)
         self.global_time = min_time
+
+    def load_mnemonics(self):
+        return { "arithmetic": ["ADD", "SUB", "MULT", "DIV"],
+                 "memory":     ["LOAD", "STORE"],
+                 "jump":       ["BRANY", "BRPOS", "BRZERO", "BRNEG"], 
+                 "system":     ["SYSCALL"] }
+
+    def get_target_value(self, target, process):
+        """ 
+        Args:
+            target (int/str): target == #constante ou target == var (variavel declarada no .data)
+        """
+        return  int(target.split("#")[1]) if "#" in target else int(process.data[target])    
     
     def __do_state_change(process, state):
         pass
@@ -111,6 +149,91 @@ class OS():
             print(print_str)
         print(line)
 
+    def __is_label(self, instruction):
+        # instruction = "loop"
+        # instruction.split(" ") = ["loop"] 
+        # ou
+        # instruction = "LOAD var"
+        # instruction.split(" ") = ["LOAD", "var"]
+        return  len(instruction.split(" ")) == 1 
+
+    def exec_instruction(self, process, instruction):
+        # exemplos
+        #   (1) instruction = "LOAD variable" => op = LOAD e target = variable
+        #   (2) as instrucoes podem vim de um label LABEL_X:
+        #       instructions = process.labels[LABEL_X] = ["BRZEO fim", "load a", "add b",...]
+
+            op, target  = instruction.split(" ")
+            op = op.upper()
+
+            if op in self.mneumonics["memory"]:
+                self.memory_instructions(op, target, process)
+
+            elif op in self.mneumonics["system"]:
+                self.system_instructions(process, target)
+
+            elif op in self.mneumonics["jump"]:
+                self.jump_instructions(process, op, label=target)
+
+            elif op in self.mneumonics["arithmetic"]:
+                self.artithmetic_instructions(process, op, target)
+
+    def memory_instructions(self, op, target, process):
+        # se tiver o (#) na frente => enderecamento imediato (target)
+        # se NAO tiver o (#) na frente => enderecamento direto (o valor dessa variavel target precisa ser capturada no campo .data)
+        if op == "LOAD":
+            target = self.get_target_value(target, process)
+            self.acc = target
+        elif op == "STORE":
+            process.data[target] = self.acc
+
+    def artithmetic_instructions(self, process, op, target):
+        target = self.get_target_value(target, process)
+        if op == "ADD":
+            self.acc += target
+        elif op == "SUB":
+            self.acc -= target
+        elif op == "MULT":
+            self.acc *= target
+        elif op == "DIV":
+            self.acc /= target
+    
+    def jump_instructions(self, process, op, label):
+        need_to_jump = False
+        if op == "BRANY":
+            need_to_jump = True        
+        if op == "BRPOS":
+            if self.acc > 0:  
+                need_to_jump = True
+        elif op == "BRZERO":
+            if self.acc == 0: 
+                need_to_jump = True
+        elif op == "BRNEG":
+            if self.acc < 0:  
+                need_to_jump = True
+        
+        if need_to_jump:
+            curr_label = process.last_label
+            if not self.__will_jump_to_same_label(curr_label, new_label=label):
+                process.last_pc += 1
+
+            process.last_label_pc = 0
+    
+    def __will_jump_to_same_label(self, curr_label, new_label):
+        return curr_label == new_label
+
+    def system_instructions(self, process, index):
+        if index == 0:
+            process.state = State.EXIT
+        process.state = State.BLOCKED
+        process.time_blocked = randint(1, 8)
+        if index == 1:
+            pass
+        elif index == 2:
+            pass
+        
+        process.last_pc += 1
+
     def exec_processes(self):
         while True:
             self.__print_queues()
@@ -127,7 +250,6 @@ class OS():
                 else:
                     continue
             
-
             ## Contar quantum com o processo corrente
             if process:
                 for i in range(self.quantum):
