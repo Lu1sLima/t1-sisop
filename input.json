@@ -3,29 +3,19 @@
   "memory": 2,
   "processes": [
     {
-      "filename": "process_files/p1.txt",
+      "filename": "process_files/prog2.txt",
       "priority": "HIGH",
       "arrival_time": 0
     },
     {
-      "filename": "process_files/p2.txt",
-      "priority": "MEDIUM",
-      "arrival_time": 5
-    },
-    {
       "filename": "process_files/p1.txt",
+      "priority": "MEDIUM",
+      "arrival_time": 2
+    },
+    {
+      "filename": "process_files/prog3.txt",
       "priority": "HIGH",
-      "arrival_time": 4
-    },
-    {
-      "filename": "process_files/p2.txt",
-      "priority": "LOW",
-      "arrival_time": 1
-    },
-    {
-      "filename": "process_files/p2.txt",
-      "priority": "LOW",
-      "arrival_time": 7
+      "arrival_time": 0
     }
   ]
 }

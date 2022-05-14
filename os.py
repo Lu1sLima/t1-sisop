@@ -1,12 +1,10 @@
-from platform import processor
 import re
-import sys
 import time
 import os
 import json
 from random import randint
 
-from process import Process, State
+from process import Process, State, Priority
 from typing import List
 
 class OS():
@@ -15,18 +13,18 @@ class OS():
         self.acc: float = 0.0
         self.pc: int = None
         self.mneumonics = self.load_mnemonics()
-        self.queues = {
-            "HIGH": [],
-            "MEDIUM": [],
-            "LOW": []
-        }
         self.quantum = 2
         self.global_time = 0
         self.memory_capacity = 0
         self.p_list = []
+        self.ready_list = []
+        self.blocked_list = []
 
     def run_process(self, process: Process):
         # Aqui de fato rodar a instru dos processos!
+        if process.last_pc > len(process.instructions)-1: return
+
+        increment_pc = False
         pc = process.last_pc
         temp_instruction = process.instructions[pc]
         if self.__is_label(temp_instruction):
@@ -43,16 +41,21 @@ class OS():
                 process.last_label = None
                 process.last_label_pc = 0
                 process.last_pc += 1
+                increment_pc = True
+                if process.last_pc > len(process.instructions)-1: return
                 instruction = process.instructions[process.last_pc]
         else:
             instruction = process.instructions[pc]
-            process.last_pc += 1
+            increment_pc = True
         
-        self.exec_instruction(process, instruction)
+        print(f'Executing: {instruction}')
+        time.sleep(4)
+        self.exec_instruction(process, instruction, increment_pc)
 
     def __parse_code(self, code_string: str) -> List[str]:
         code_string = code_string.strip()
         labels = {}
+        labels_cnt = 0
         instructions = []
         i = 0
         code_lines = code_string.split('\n')
@@ -69,6 +72,7 @@ class OS():
                     labels[label].append(code)
                     i += 1
                 else:
+                    labels_cnt +=1
                     i+= 1
                     while i < len(code_lines):
                         code = code_lines[i].strip()
@@ -80,7 +84,7 @@ class OS():
             instructions.append(code)
             i += 1
 
-        return instructions, labels
+        return instructions, labels, i-labels_cnt
 
     def __parse_data(self, data_string: str) -> dict:
         data_string = data_string.strip()
@@ -107,17 +111,21 @@ class OS():
             if arrival_time < min_time:
                 min_time = arrival_time
             with open(os.path.join(process_info['filename']), 'r') as process_file:
-                priority = process_info['priority'].upper()
+                priority = Priority.priority(process_info['priority'].upper())
                 content = process_file.read()
                 code = re.search('(?s)(?<=.code).*?(?=.endcode)', content).group()
                 data = re.search('(?s)(?<=.data).*?(?=.enddata)', content).group()
 
-                instructions, labels = self.__parse_code(code)
+                instructions, labels, process_time = self.__parse_code(code)
                 data_dict = self.__parse_data(data)
 
-                process = Process(i, priority, instructions, labels, data_dict, State.READY, arrival_time)
-                self.queues[priority].append(process)
+                process = Process(i, priority, instructions, 
+                                labels, data_dict, State.NEW, 
+                                arrival_time, process_time)
+                # self.queues[priority].append(process)
                 self.p_list.append(process)
+
+        self.__do_state_change()
         self.global_time = min_time
 
     def load_mnemonics(self):
@@ -132,12 +140,10 @@ class OS():
             target (int/str): target == #constante ou target == var (variavel declarada no .data)
         """
         return  int(target.split("#")[1]) if "#" in target else int(process.data[target])    
-    
-    def __do_state_change(process, state):
-        pass
+
 
     def __print_queues(self):
-        time.sleep(1)
+        time.sleep(4)
         os.system('cls' if os.name == 'nt' else 'clear') #clear console
         biggest = len(f"| {State.BLOCKED_SUSPENDED.value} {self.p_list} |")
         for state in State:
@@ -157,7 +163,7 @@ class OS():
         # instruction.split(" ") = ["LOAD", "var"]
         return  len(instruction.split(" ")) == 1 
 
-    def exec_instruction(self, process, instruction):
+    def exec_instruction(self, process, instruction, increment_pc):
         # exemplos
         #   (1) instruction = "LOAD variable" => op = LOAD e target = variable
         #   (2) as instrucoes podem vim de um label LABEL_X:
@@ -167,18 +173,18 @@ class OS():
             op = op.upper()
 
             if op in self.mneumonics["memory"]:
-                self.memory_instructions(op, target, process)
+                self.memory_instructions(op, target, process, increment_pc)
 
             elif op in self.mneumonics["system"]:
-                self.system_instructions(process, target)
+                self.system_instructions(process, target, increment_pc)
 
             elif op in self.mneumonics["jump"]:
                 self.jump_instructions(process, op, label=target)
 
             elif op in self.mneumonics["arithmetic"]:
-                self.artithmetic_instructions(process, op, target)
+                self.artithmetic_instructions(process, op, target, increment_pc)
 
-    def memory_instructions(self, op, target, process):
+    def memory_instructions(self, op, target, process, increment_pc):
         # se tiver o (#) na frente => enderecamento imediato (target)
         # se NAO tiver o (#) na frente => enderecamento direto (o valor dessa variavel target precisa ser capturada no campo .data)
         if op == "LOAD":
@@ -187,7 +193,10 @@ class OS():
         elif op == "STORE":
             process.data[target] = self.acc
 
-    def artithmetic_instructions(self, process, op, target):
+        if increment_pc:
+            process.last_pc += 1
+
+    def artithmetic_instructions(self, process, op, target, increment_pc):
         target = self.get_target_value(target, process)
         if op == "ADD":
             self.acc += target
@@ -197,6 +206,9 @@ class OS():
             self.acc *= target
         elif op == "DIV":
             self.acc /= target
+
+        if increment_pc:
+            process.last_pc += 1
     
     def jump_instructions(self, process, op, label):
         need_to_jump = False
@@ -222,48 +234,97 @@ class OS():
     def __will_jump_to_same_label(self, curr_label, new_label):
         return curr_label == new_label
 
-    def system_instructions(self, process, index):
+    def system_instructions(self, process, index, increment_pc):
         if index == 0:
             process.state = State.EXIT
-        process.state = State.BLOCKED
-        process.time_blocked = randint(1, 8)
+        self.ready_list.pop(0)
+        process.state = State.BLOCKED_SUSPENDED
+        process.blocked_time = randint(1, 8)
         if index == 1:
             pass
         elif index == 2:
             pass
         
-        process.last_pc += 1
+        if increment_pc:
+            process.last_pc += 1
+    
+    def __decrement_blocked_times(self):
+        func = lambda p : p.state == State.BLOCKED or p.state == State.BLOCKED_SUSPENDED
+        blocked_processes = filter(func, self.p_list)
+
+        for process in blocked_processes:
+            process.blocked_time -= 1
+
+    def __get_min_process_index(self, lst: list):
+        return min(range(len(lst)), key=lst.__getitem__)
+
+    def __handle_queues(self, state_changeable_processes, lst: list, states: tuple):
+        lst = [p for p in lst if p.state == states[0]] #cleaning
+
+        for process in state_changeable_processes:
+            if len(lst) < self.memory_capacity:
+                process.state = states[0]
+                lst.append(process)
+                continue
+
+            min_process_idx = self.__get_min_process_index(lst)
+            min_process = lst[min_process_idx]
+
+            if process.priority.value > min_process.priority.value:
+                del lst[min_process_idx]
+                min_process.state = states[1]
+                process.state = states[0]
+                lst.append(process)
+                continue
+
+            process.state = states[1]
+
+        return lst
+
+    def __should_exit(self, process) -> None:
+        if process.last_pc > len(process.instructions)-1:
+            process.state = State.EXIT
+            return True
+
+        return False
+
+    def __do_state_change(self):
+        func_ready = lambda p : p.arrival_time <= self.global_time and p.blocked_time <= 0 and p.state != State.EXIT
+        states = (State.READY, State.READY_SUSPENDED)
+        ready_states = list(filter(func_ready, self.p_list))
+        self.ready_list = self.__handle_queues(ready_states, self.ready_list, states)
+
+        # self.blocked_list = [p for p in self.blocked_list if p.state == State.BLOCKED]
+        states = (State.BLOCKED, State.BLOCKED_SUSPENDED)
+        func_blocked_suspended = lambda p : p.state == State.BLOCKED_SUSPENDED
+        blocked_suspended_states = list(filter(func_blocked_suspended, self.p_list))
+        self.blocked_list = self.__handle_queues(blocked_suspended_states, self.blocked_list, states)
 
     def exec_processes(self):
-        while True:
+        while self.ready_list or self.blocked_list:
             self.__print_queues()
-            process = None
-            for priority, queue in self.queues.items():
-                if queue:
-                    process = self.queues[priority].pop(0)
-                    if process.arrival_time <= self.global_time:
-                        process.state = State.RUNNING
-                        break
-                    else:
-                        process = None
-                        continue
-                else:
-                    continue
-            
+            process = self.ready_list[0] if self.ready_list else None
+
             ## Contar quantum com o processo corrente
             if process:
+                print(f'Running: {process}')
+                process.state = State.RUNNING
+                self.__print_queues()
                 for i in range(self.quantum):
-                    if process.state.value == State.BLOCKED.value:
-                        #chama função que decrementa
-                        #verificar se chegou em zero o elapsed time
-                        #se sim, coloca em ready da um break (se sim ou se não)
-                        break
+                    self.__decrement_blocked_times()
                     self.run_process(process)
                     self.global_time += 1
-                process.state = State.EXIT
-                # self.queues[process.priority].append(process)
+                    if process.state == State.BLOCKED_SUSPENDED or self.__should_exit(process):
+                        self.__do_state_change()
+                        break
             else:
                 self.global_time += 1
+                self.__decrement_blocked_times()
+                
+            self.__do_state_change()
+        self.__print_queues()
+        # print('CABO!')
+
 
 
 if __name__ == "__main__":
