@@ -325,7 +325,11 @@ class OS():
         
         if need_to_jump:
             curr_label = process.last_label
-            if not self.__will_jump_to_same_label(curr_label, new_label=label):
+
+            if curr_label is None:
+                process.last_label = label
+
+            elif not self.__will_jump_to_same_label(curr_label, new_label=label):
                 process.last_pc += 1
 
             process.last_label_pc = 0
