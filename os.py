@@ -5,7 +5,7 @@ import json
 from random import randint
 
 from process import Process, State, Priority
-from typing import List
+from typing import List, Tuple, Dict
 
 class OS():
     
@@ -19,9 +19,16 @@ class OS():
         self.ready_list = []
         self.blocked_list = []
 
-    def run_process(self, process: Process):
-        # Aqui de fato rodar a instru dos processos!
-        if process.last_pc > len(process.instructions)-1: return
+    def run_process(self, process: Process) -> None:
+        """ Método responsável por de fato executar as instruções
+        de um processo.
+
+        Args:
+            process (Process): Processo a ser executado
+        """
+
+        # Tratamento de processos que devem sofrer EXIT
+        if process.last_pc > len(process.instructions)-1: return 
 
         increment_pc = False
         pc = process.last_pc
@@ -41,6 +48,7 @@ class OS():
                 process.last_label_pc = 0
                 process.last_pc += 1
                 increment_pc = True
+                # Tratamento de processos que devem sofrer EXIT
                 if process.last_pc > len(process.instructions)-1: return
                 instruction = process.instructions[process.last_pc]
         else:
@@ -51,7 +59,18 @@ class OS():
         print(f'Executing: {instruction}, Acc: {process.last_acc}, Global Time: {self.global_time}')
         time.sleep(2)
 
-    def __parse_code(self, code_string: str) -> List[str]:
+    def __parse_code(self, code_string: str) -> Tuple[List[str], Dict]:
+        """ Método responsável por fazer o parsing da string que contém
+        as instruções. O método coloca as intruções em uma lista e as
+        instruções dentro de labels em um dicionário.
+
+        Args:
+            code_string (str): string contendo o código (instruções)
+
+        Returns:
+            Tuple[List[str], Dict]: lista contendo as instruções e dict contendo labels
+        """
+
         code_string = code_string.strip()
         labels = {}
         instructions = []
@@ -84,6 +103,16 @@ class OS():
         return instructions, labels
 
     def __parse_data(self, data_string: str) -> dict:
+        """ Método responsável por fazer o parsing da área
+        de dados do arquivo. Coloca-os em um dicionário.
+
+        Args:
+            data_string (str): string contendo a área de dados
+
+        Returns:
+            dict: dicionário com variável:valor
+        """
+
         data_string = data_string.strip()
         data_dict = {}
 
@@ -94,6 +123,13 @@ class OS():
         return data_dict
 
     def read_input_file(self, filename: str) -> None:
+        """ Método responsável por ler o arquivo JSON de configuração.
+        Chama os métodos necessários para ler as áres de código e dado.
+
+        Args:
+            filename (str): caminho do arquivo de configuração
+        """
+
         with open(filename, 'r') as file:
             file_json = json.loads(file.read())
             self.quantum = file_json['quantum']
@@ -101,7 +137,17 @@ class OS():
 
             self.__read_processes(file_json['processes'])
 
-    def __read_processes(self, processes: dict) -> None:
+    def __read_processes(self, processes: Dict) -> None:
+        """ Método responsável por ler os arquivos de processos
+        do arquivo JSON de configuração. Encontra a área de código
+        e dados utilizando uma regex e chama os métodos para fazer
+        o parsing. Após isso, cria os processos de acordo com as
+        configurações passadas, coloca-os em uma lista (self.p_list).
+
+        Args:
+            processes (dict): dicionário contendo as infos dos processos
+        """
+
         min_time = float('inf')
         for i, process_info in enumerate(processes):
             arrival_time = int(process_info['arrival_time'])
@@ -124,21 +170,30 @@ class OS():
         self.__do_state_change()
         self.global_time = min_time
 
-    def load_mnemonics(self):
+    def load_mnemonics(self) -> Dict:
+        """ Método auxiliar que apenas carrega os mneumônicos em memória.
+
+        Returns:
+            Dict: dicionário contendo os mneumônicos
+        """
+
         return { "arithmetic": ["ADD", "SUB", "MULT", "DIV"],
                  "memory":     ["LOAD", "STORE"],
                  "jump":       ["BRANY", "BRPOS", "BRZERO", "BRNEG"], 
                  "system":     ["SYSCALL"] }
 
-    def get_target_value(self, target, process):
-        """ 
+    def get_target_value(self, target: str, process: Process) -> int:
+        """ Método que retira um valor de uma instrução aritmética
         Args:
             target (int/str): target == #constante ou target == var (variavel declarada no .data)
         """
         return  int(target.split("#")[1]) if "#" in target else int(process.data[target])    
 
 
-    def __print_queues(self):
+    def __print_queues(self) -> None:
+        """ Método auxiliar utilizado apenas para fazer o print
+        das filas de (Ready/Blocked, ...) """
+
         time.sleep(2)
         os.system('cls' if os.name == 'nt' else 'clear') #clear console
         biggest = len(f"| {State.BLOCKED_SUSPENDED.value} {self.p_list} |")
@@ -151,7 +206,16 @@ class OS():
             print(print_str)
         print(line)
 
-    def __is_label(self, instruction):
+    def __is_label(self, instruction: str) -> bool:
+        """ Método que verifica se uma instrução é uma label
+
+        Args:
+            instruction (str): string da instrução
+
+        Returns:
+            bool
+        """
+
         # instruction = "loop"
         # instruction.split(" ") = ["loop"] 
         # ou
@@ -159,30 +223,48 @@ class OS():
         # instruction.split(" ") = ["LOAD", "var"]
         return  len(instruction.split(" ")) == 1 
 
-    def exec_instruction(self, process, instruction, increment_pc):
-        # exemplos
-        #   (1) instruction = "LOAD variable" => op = LOAD e target = variable
-        #   (2) as instrucoes podem vim de um label LABEL_X:
-        #       instructions = process.labels[LABEL_X] = ["BRZEO fim", "load a", "add b",...]
+    def exec_instruction(self, process: Process, instruction: str, increment_pc: bool) -> None:
+        """ Método que executa a instrução baseada no seu mneumônico
 
-            op, target  = instruction.split(" ")
-            op = op.upper()
+        Args:
+            process (Process): processo sendo executado
+            instruction (str): instrução a ser executada
+            increment_pc (bool): variável auxiliar
 
-            if op in self.mneumonics["memory"]:
-                self.memory_instructions(op, target, process, increment_pc)
+        Exemplos:
+            (1) instruction = "LOAD variable" => op = LOAD e target = variable
+            (2) as instrucoes podem vim de um label LABEL_X:
+            instructions = process.labels[LABEL_X] = ["BRZEO fim", "load a", "add b",...]
+        """
 
-            elif op in self.mneumonics["system"]:
-                self.system_instructions(process, target, increment_pc)
+        op, target  = instruction.split(" ")
+        op = op.upper()
 
-            elif op in self.mneumonics["jump"]:
-                self.jump_instructions(process, op, label=target)
+        if op in self.mneumonics["memory"]:
+            self.memory_instructions(op, target, process, increment_pc)
 
-            elif op in self.mneumonics["arithmetic"]:
-                self.artithmetic_instructions(process, op, target, increment_pc)
+        elif op in self.mneumonics["system"]:
+            self.system_instructions(process, target, increment_pc)
 
-    def memory_instructions(self, op, target, process, increment_pc):
+        elif op in self.mneumonics["jump"]:
+            self.jump_instructions(process, op, label=target)
+
+        elif op in self.mneumonics["arithmetic"]:
+            self.artithmetic_instructions(process, op, target, increment_pc)
+
+    def memory_instructions(self, op: str, target: str, process: Process, increment_pc: bool) -> None:
+        """ Método que executa instruções de memória
+
+        Args:
+            op (str): operador
+            target (str): variável alvo
+            process (Process): processo sendo executado
+            increment_pc (bool): variável auxiliar
+        """
+
         # se tiver o (#) na frente => enderecamento imediato (target)
         # se NAO tiver o (#) na frente => enderecamento direto (o valor dessa variavel target precisa ser capturada no campo .data)
+
         if op == "LOAD":
             target = self.get_target_value(target, process)
             process.last_acc = target
@@ -192,7 +274,16 @@ class OS():
         if increment_pc:
             process.last_pc += 1
 
-    def artithmetic_instructions(self, process, op, target, increment_pc):
+    def artithmetic_instructions(self, process: Process, op: str, target: str, increment_pc: bool) -> None:
+        """ Método responsável por executar instruções aritméticas.
+
+        Args:
+            process (Process): processo sendo executado
+            op (str): operador
+            target (str): variável alvo
+            increment_pc (bool): variável auxiliar
+        """
+
         target = self.get_target_value(target, process)
         if op == "ADD":
             process.last_acc += target
@@ -204,6 +295,7 @@ class OS():
             try:
                 process.last_acc /= target
             except ZeroDivisionError:
+                # Se divisão por zero o processo vai para EXIT
                 process.state = State.EXIT
                 process.end_time = self.global_time
                 print('Division By Zero! The process was killed')
@@ -212,7 +304,29 @@ class OS():
         if increment_pc:
             process.last_pc += 1
     
-    def jump_instructions(self, process, op, label):
+    def __will_jump_to_same_label(self, curr_label: str, new_label: str) -> bool:
+        """ Método auxiliar para saber se o jump irá para a mesma label.
+        Trata jumps em loop.
+
+        Args:
+            curr_label (str): label atual
+            new_label (str): nova label
+
+        Returns:
+            bool
+        """
+
+        return curr_label == new_label
+
+    def jump_instructions(self, process: Process, op: str, label: str) -> None:
+        """ Processo responsável por tratar instruções de JUMP.
+
+        Args:
+            process (Process): processo sendo executado
+            op (str): operador
+            label (str): label que o jump irá pular
+        """
+
         need_to_jump = False
         if op == "BRANY":
             need_to_jump = True        
@@ -233,78 +347,123 @@ class OS():
 
             process.last_label_pc = 0
 
-    def __calc_process_time(self):
+    def __calc_process_time(self) -> None:
+        """ Método auxiliar que calcula o process time de cada processo """
+
         total_running_time = 0
         for p in self.p_list:
             total_running_time = (p.end_time - p.arrival_time) - p.waiting_time
             p.process_time = total_running_time
 
-    def __calc_turn_around_time(self):
+    def __calc_turn_around_time(self) -> None:
+        """ Método auxiliar que calcula o turnaround time de cada processo """
+
         for p in self.p_list:
             if p.state == State.EXIT:
                 p.turn_around_time = p.end_time - p.start_time
     
-    def __calc_waiting_time(self):
+    def __calc_waiting_time(self) -> None:
+        """ Método auxiliar que calcula o waiting time de cada processo """
+
         states_not_waiting = [State.NEW, State.RUNNING, State.EXIT]
         for process in self.p_list:
             if process.state not in states_not_waiting:
                 process.waiting_time += 1
 
-    def __will_jump_to_same_label(self, curr_label, new_label):
-        return curr_label == new_label
 
-    def system_instructions(self, process, index, increment_pc):
-        if index == 0:
+    def system_instructions(self, process: Process, index: int, increment_pc: bool) -> None:
+        """ Método que trata as instruções de chamada de sistema.
+        Manda o processo para BLOCKED/SUSPENDED quando corre um bloqueio.
+
+        Args:
+            process (Process): processo sendo executado
+            index (int): valor da chamada de sistema
+            increment_pc (bool): variável auxiliar
+        """
+
+        self.ready_list.pop(0)
+        if index == '0':
             process.state = State.EXIT
             process.end_time = self.global_time
-        self.ready_list.pop(0)
+            return
+
         process.state = State.BLOCKED_SUSPENDED
         process.blocked_time = randint(1, 8)
-        if index == 1:
+        if index == '1':
             pass
-        elif index == 2:
+        elif index == '2':
             pass
         
         if increment_pc:
             process.last_pc += 1
     
-    def __decrement_blocked_times(self):
+    def __decrement_blocked_times(self) -> None:
+        """ Decrementa o tempo de bloqueio de cada processo em BLOCKED ou BLOCKED/SUSPENDED """
+
         func = lambda p : p.state == State.BLOCKED or p.state == State.BLOCKED_SUSPENDED
         blocked_processes = filter(func, self.p_list)
 
         for process in blocked_processes:
             process.blocked_time -= 1
 
-    def __get_min_process_index(self, lst: list):
+    def __get_min_process_index(self, lst: List) -> None:
+        """ Método que que pega o processo que tem menor prioridade de uma lista.
+
+        Args:
+            lst (List): list de processos
+        """
+
         return min(range(len(lst)), key=lst.__getitem__)
 
-    def __handle_queues(self, state_changeable_processes: list, lst: list, states: tuple):
+    def __handle_queues(self, state_changeable_processes: List, queue: List, states: Tuple) -> List[Process]:
+        """ Método responsável por fazer o escalonamento das filas de READY e BLOCKED.
+
+        Args:
+            state_changeable_processes (List): estados que talvez podem mudar de fila
+            queue (List): fila que estamos escalonando (READY ou BLOCKED) 
+            states (Tuple): estados que estão em vigor. (READY, READY/SUSPENDED) ou (BLOCKED, BLOCKED/SUSPENDED)
+
+        Returns:
+            List[Process]: fila com os processos escalonados
+        """
+
         block_or_ready = 0
         blocked_or_ready_suspend = 1
-        lst = [p for p in lst if p.state == states[block_or_ready]] #cleaning
+        queue = [p for p in queue if p.state == states[block_or_ready]] #cleaning
 
         for process in state_changeable_processes:
-            if len(lst) < self.memory_capacity:
-                process.state = states[block_or_ready]
-                lst.append(process)
-                lst.sort(reverse=True)
+            if len(queue) < self.memory_capacity:
+                if process not in queue:
+                    process.state = states[block_or_ready]
+                    queue.append(process)
+                    queue.sort(reverse=True)
                 continue
 
-            min_process_idx = self.__get_min_process_index(lst)
-            min_process = lst[min_process_idx]
+            min_process_idx = self.__get_min_process_index(queue)
+            min_process = queue[min_process_idx]
 
             if process.priority.value > min_process.priority.value:
-                del lst[min_process_idx]
+                del queue[min_process_idx]
                 min_process.state = states[blocked_or_ready_suspend]
                 process.state = states[block_or_ready]
-                lst.append(process)
+                queue.append(process)
                 continue
 
             process.state = states[blocked_or_ready_suspend]
 
-        return lst
+        return queue
 
-    def __should_exit(self, process) -> None:
+    def __should_exit(self, process: Process) -> bool:
+        """ Método que verifica se um processo deveria ir para o estado de EXIT.
+        Verifica se o último PC do processo é mairo do que sua área de código.
+
+        Args:
+            process (Process): processo a ser verificado
+
+        Returns:
+            bool
+        """
+
         if process.last_pc > len(process.instructions)-1:
             process.state = State.EXIT
             process.end_time = self.global_time
@@ -312,19 +471,25 @@ class OS():
 
         return False
 
-    def __do_state_change(self):
+    def __do_state_change(self) -> None:
+        """ Método que faz o escalonamento de ambas as filas READY e BLOCKED. """
+
+        # READY LIST
         func_ready = lambda p : p.arrival_time <= self.global_time and p.blocked_time <= 0 and p.state != State.EXIT
         states = (State.READY, State.READY_SUSPENDED)
         ready_states = list(filter(func_ready, self.p_list))
         self.ready_list = self.__handle_queues(ready_states, self.ready_list, states)
 
-        # self.blocked_list = [p for p in self.blocked_list if p.state == State.BLOCKED]
+
+        # BLOCKED LIST
         states = (State.BLOCKED, State.BLOCKED_SUSPENDED)
         func_blocked_suspended = lambda p : p.state == State.BLOCKED_SUSPENDED
         blocked_suspended_states = list(filter(func_blocked_suspended, self.p_list))
         self.blocked_list = self.__handle_queues(blocked_suspended_states, self.blocked_list, states)
 
-    def exec_processes(self):
+    def exec_processes(self) -> None:
+        " Método que de fato executa um processo, seguindo o quantum do sistema. "
+
         while self.ready_list or self.blocked_list:
             self.__print_queues()
             process = self.ready_list[0] if self.ready_list else None
@@ -345,6 +510,7 @@ class OS():
                     if process.state in state_breaker or self.__should_exit(process):
                         self.__do_state_change()
                         break
+                input(">>")
             else:
                 self.global_time += 1
                 self.__decrement_blocked_times()

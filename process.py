@@ -47,17 +47,50 @@ class Process():
         self.turn_around_time = 0
 
     def __eq__(self, other):
+        """ Método auxiliar (compare)
+
+        Args:
+            other (Process): outro processo a ser comparado
+
+        Returns:
+            bool
+        """
         return self.priority.value == other.priority.value
 
     def __lt__(self, other):
+        """ Método auxiliar (compare)
+
+        Args:
+            other (Process): outro processo a ser comparado
+
+        Returns:
+            bool
+        """
         return self.priority.value < other.priority.value
 
     def __gt__(self, other):
+        """ Método auxiliar (compare)
+
+        Args:
+            other (Process): outro processo a ser comparado
+
+        Returns:
+            bool
+        """
         return self.priority.value > other.priority.value
 
     def __str__(self):
+        """ Método auxiliar (compare)
+
+        Args:
+            other (Process): outro processo a ser comparado
+
+        Returns:
+            bool
+        """
         return f"PID {self.pid} ({self.priority})"
 
     def __repr__(self):
+        """ Método auxiliar (to string) """
         return f"PID {self.pid} ({self.priority}), AT: {self.arrival_time}, STATE: {self.state.value}"
 
