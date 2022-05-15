@@ -47,9 +47,9 @@ class OS():
             instruction = process.instructions[pc]
             increment_pc = True
         
+        self.exec_instruction(process, instruction, increment_pc)
         print(f'Executing: {instruction}, Acc: {process.last_acc}, Global Time: {self.global_time}')
         time.sleep(2)
-        self.exec_instruction(process, instruction, increment_pc)
 
     def __parse_code(self, code_string: str) -> List[str]:
         code_string = code_string.strip()
@@ -236,7 +236,7 @@ class OS():
     def __calc_process_time(self):
         total_running_time = 0
         for p in self.p_list:
-            total_running_time = (self.global_time - p.arrival_time) - p.waiting_time
+            total_running_time = (p.end_time - p.arrival_time) - p.waiting_time
             p.process_time = total_running_time
 
     def __calc_turn_around_time(self):
@@ -287,6 +287,7 @@ class OS():
             if len(lst) < self.memory_capacity:
                 process.state = states[block_or_ready]
                 lst.append(process)
+                lst.sort(reverse=True)
                 continue
 
             min_process_idx = self.__get_min_process_index(lst)
