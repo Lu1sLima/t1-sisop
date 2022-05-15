@@ -10,10 +10,9 @@ from typing import List
 class OS():
     
     def __init__(self):
-        self.acc: float = 0.0
         self.pc: int = None
         self.mneumonics = self.load_mnemonics()
-        self.quantum = 2
+        self.quantum = -1
         self.global_time = 0
         self.memory_capacity = 0
         self.p_list = []
@@ -48,7 +47,7 @@ class OS():
             instruction = process.instructions[pc]
             increment_pc = True
         
-        print(f'Executing: {instruction}, Acc: {self.acc}, Global Time: {self.global_time}')
+        print(f'Executing: {instruction}, Acc: {process.last_acc}, Global Time: {self.global_time}')
         time.sleep(2)
         self.exec_instruction(process, instruction, increment_pc)
 
@@ -186,9 +185,9 @@ class OS():
         # se NAO tiver o (#) na frente => enderecamento direto (o valor dessa variavel target precisa ser capturada no campo .data)
         if op == "LOAD":
             target = self.get_target_value(target, process)
-            self.acc = target
+            process.last_acc = target
         elif op == "STORE":
-            process.data[target] = self.acc
+            process.data[target] = process.last_acc
 
         if increment_pc:
             process.last_pc += 1
@@ -196,18 +195,18 @@ class OS():
     def artithmetic_instructions(self, process, op, target, increment_pc):
         target = self.get_target_value(target, process)
         if op == "ADD":
-            self.acc += target
+            process.last_acc += target
         elif op == "SUB":
-            self.acc -= target
+            process.last_acc -= target
         elif op == "MULT":
-            self.acc *= target
+            process.last_acc *= target
         elif op == "DIV":
             try:
-                self.acc /= target
+                process.last_acc /= target
             except ZeroDivisionError:
                 process.state = State.EXIT
-                print('Division By Zero!')
-                time.sleep(10)
+                process.end_time = self.global_time
+                print('Division By Zero! The process was killed')
                 return
 
         if increment_pc:
@@ -218,13 +217,13 @@ class OS():
         if op == "BRANY":
             need_to_jump = True        
         if op == "BRPOS":
-            if self.acc > 0:  
+            if process.last_acc > 0:  
                 need_to_jump = True
         elif op == "BRZERO":
-            if self.acc == 0: 
+            if process.last_acc == 0: 
                 need_to_jump = True
         elif op == "BRNEG":
-            if self.acc < 0:  
+            if process.last_acc < 0:  
                 need_to_jump = True
         
         if need_to_jump:
@@ -233,13 +232,31 @@ class OS():
                 process.last_pc += 1
 
             process.last_label_pc = 0
+
+    def __calc_process_time(self):
+        total_running_time = 0
+        for p in self.p_list:
+            total_running_time = (self.global_time - p.arrival_time) - p.waiting_time
+            p.process_time = total_running_time
+
+    def __calc_turn_around_time(self):
+        for p in self.p_list:
+            if p.state == State.EXIT:
+                p.turn_around_time = p.end_time - p.start_time
     
+    def __calc_waiting_time(self):
+        states_not_waiting = [State.NEW, State.RUNNING, State.EXIT]
+        for process in self.p_list:
+            if process.state not in states_not_waiting:
+                process.waiting_time += 1
+
     def __will_jump_to_same_label(self, curr_label, new_label):
         return curr_label == new_label
 
     def system_instructions(self, process, index, increment_pc):
         if index == 0:
             process.state = State.EXIT
+            process.end_time = self.global_time
         self.ready_list.pop(0)
         process.state = State.BLOCKED_SUSPENDED
         process.blocked_time = randint(1, 8)
@@ -261,12 +278,14 @@ class OS():
     def __get_min_process_index(self, lst: list):
         return min(range(len(lst)), key=lst.__getitem__)
 
-    def __handle_queues(self, state_changeable_processes, lst: list, states: tuple):
-        lst = [p for p in lst if p.state == states[0]] #cleaning
+    def __handle_queues(self, state_changeable_processes: list, lst: list, states: tuple):
+        block_or_ready = 0
+        blocked_or_ready_suspend = 1
+        lst = [p for p in lst if p.state == states[block_or_ready]] #cleaning
 
         for process in state_changeable_processes:
             if len(lst) < self.memory_capacity:
-                process.state = states[0]
+                process.state = states[block_or_ready]
                 lst.append(process)
                 continue
 
@@ -275,18 +294,19 @@ class OS():
 
             if process.priority.value > min_process.priority.value:
                 del lst[min_process_idx]
-                min_process.state = states[1]
-                process.state = states[0]
+                min_process.state = states[blocked_or_ready_suspend]
+                process.state = states[block_or_ready]
                 lst.append(process)
                 continue
 
-            process.state = states[1]
+            process.state = states[blocked_or_ready_suspend]
 
         return lst
 
     def __should_exit(self, process) -> None:
         if process.last_pc > len(process.instructions)-1:
             process.state = State.EXIT
+            process.end_time = self.global_time
             return True
 
         return False
@@ -308,13 +328,16 @@ class OS():
             self.__print_queues()
             process = self.ready_list[0] if self.ready_list else None
 
-            ## Contar quantum com o processo corrente
             if process:                
                 print(f'Running: {process}')
                 state_breaker = [State.EXIT, State.BLOCKED_SUSPENDED]
                 process.state = State.RUNNING
                 self.__print_queues()
+                
+                if process.start_time < 0: process.start_time = self.global_time
+                
                 for i in range(self.quantum):
+                    self.__calc_waiting_time()
                     self.__decrement_blocked_times()
                     self.run_process(process)
                     self.global_time += 1
@@ -324,8 +347,11 @@ class OS():
             else:
                 self.global_time += 1
                 self.__decrement_blocked_times()
+                self.__calc_waiting_time()
                 
             self.__do_state_change()
+        self.__calc_process_time()
+        self.__calc_turn_around_time()
         self.__print_queues()
 
 
