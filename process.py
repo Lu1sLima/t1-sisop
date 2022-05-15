@@ -27,7 +27,7 @@ class Priority(Enum):
 
 
 class Process():
-    def __init__(self, pid: int, priority: Priority, instructions: list, labels: dict, data: dict, state: State, arrival_time: int, process_time: int):
+    def __init__(self, pid: int, priority: Priority, instructions: list, labels: dict, data: dict, state: State, arrival_time: int):
         self.pid = pid
         self.instructions = instructions
         self.data = data
@@ -38,9 +38,9 @@ class Process():
         self.last_label = None
         self.priority = priority
         self.arrival_time = arrival_time
-        self.last_acc = None
+        self.last_acc = 0
         self.blocked_time = -1
-        self.process_time = process_time
+        self.process_time = 0
 
     def __eq__(self, other):
         return self.priority.value == other.priority.value

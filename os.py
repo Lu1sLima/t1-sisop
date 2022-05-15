@@ -48,14 +48,13 @@ class OS():
             instruction = process.instructions[pc]
             increment_pc = True
         
-        print(f'Executing: {instruction}')
-        time.sleep(4)
+        print(f'Executing: {instruction}, Acc: {self.acc}, Global Time: {self.global_time}')
+        time.sleep(2)
         self.exec_instruction(process, instruction, increment_pc)
 
     def __parse_code(self, code_string: str) -> List[str]:
         code_string = code_string.strip()
         labels = {}
-        labels_cnt = 0
         instructions = []
         i = 0
         code_lines = code_string.split('\n')
@@ -72,7 +71,6 @@ class OS():
                     labels[label].append(code)
                     i += 1
                 else:
-                    labels_cnt +=1
                     i+= 1
                     while i < len(code_lines):
                         code = code_lines[i].strip()
@@ -84,7 +82,7 @@ class OS():
             instructions.append(code)
             i += 1
 
-        return instructions, labels, i-labels_cnt
+        return instructions, labels
 
     def __parse_data(self, data_string: str) -> dict:
         data_string = data_string.strip()
@@ -116,13 +114,12 @@ class OS():
                 code = re.search('(?s)(?<=.code).*?(?=.endcode)', content).group()
                 data = re.search('(?s)(?<=.data).*?(?=.enddata)', content).group()
 
-                instructions, labels, process_time = self.__parse_code(code)
+                instructions, labels = self.__parse_code(code)
                 data_dict = self.__parse_data(data)
 
                 process = Process(i, priority, instructions, 
                                 labels, data_dict, State.NEW, 
-                                arrival_time, process_time)
-                # self.queues[priority].append(process)
+                                arrival_time)
                 self.p_list.append(process)
 
         self.__do_state_change()
@@ -143,7 +140,7 @@ class OS():
 
 
     def __print_queues(self):
-        time.sleep(4)
+        time.sleep(2)
         os.system('cls' if os.name == 'nt' else 'clear') #clear console
         biggest = len(f"| {State.BLOCKED_SUSPENDED.value} {self.p_list} |")
         for state in State:
@@ -205,7 +202,13 @@ class OS():
         elif op == "MULT":
             self.acc *= target
         elif op == "DIV":
-            self.acc /= target
+            try:
+                self.acc /= target
+            except ZeroDivisionError:
+                process.state = State.EXIT
+                print('Division By Zero!')
+                time.sleep(10)
+                return
 
         if increment_pc:
             process.last_pc += 1
@@ -306,15 +309,16 @@ class OS():
             process = self.ready_list[0] if self.ready_list else None
 
             ## Contar quantum com o processo corrente
-            if process:
+            if process:                
                 print(f'Running: {process}')
+                state_breaker = [State.EXIT, State.BLOCKED_SUSPENDED]
                 process.state = State.RUNNING
                 self.__print_queues()
                 for i in range(self.quantum):
                     self.__decrement_blocked_times()
                     self.run_process(process)
                     self.global_time += 1
-                    if process.state == State.BLOCKED_SUSPENDED or self.__should_exit(process):
+                    if process.state in state_breaker or self.__should_exit(process):
                         self.__do_state_change()
                         break
             else:
@@ -323,8 +327,6 @@ class OS():
                 
             self.__do_state_change()
         self.__print_queues()
-        # print('CABO!')
-
 
 
 if __name__ == "__main__":
