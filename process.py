@@ -39,8 +39,12 @@ class Process():
         self.priority = priority
         self.arrival_time = arrival_time
         self.last_acc = 0
-        self.blocked_time = -1
         self.process_time = 0
+        self.blocked_time = -1
+        self.waiting_time = 0
+        self.start_time = -1
+        self.end_time = 0
+        self.turn_around_time = 0
 
     def __eq__(self, other):
         return self.priority.value == other.priority.value
