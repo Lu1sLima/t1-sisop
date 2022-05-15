@@ -64,6 +64,6 @@
   - **Escalonamento das filas (_READY_ e _BLOCKED_)**
     - Feito no método `do_state_change`
       - O _round-robin_ ocorre no método `handle_queues`, na linha **412**, onde é feito um append (adiciona no final da fila) na fila (de blocked ou ready).
-        - Entretando, logo na linha abaixo é feito um ordenamento da fila onde o de maior prioridade fina na cabeça da fila (aqui ocorre a injustiça).
+        - Entretando, logo na linha abaixo é feito um ordenamento da fila onde o de maior prioridade fica na cabeça da fila (aqui ocorre a injustiça).
   - **Execução dos processos**
   - **Execução das intruções dos processos**
