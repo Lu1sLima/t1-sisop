@@ -16,9 +16,9 @@ def calc_turnaround_time(process_list: List[Process]) -> None:
 def calc_waiting_time(process_list: List[Process]) -> None:
     """ Método auxiliar que calcula o waiting time de cada processo """
 
-    states_not_waiting = [State.NEW, State.RUNNING, State.EXIT]
+    states_not_waiting = [State.READY, State.READY_SUSPENDED]
     for process in process_list:
-        if process.state not in states_not_waiting:
+        if process.state in states_not_waiting:
             process.waiting_time += 1
 
 

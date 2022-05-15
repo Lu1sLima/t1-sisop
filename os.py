@@ -169,7 +169,6 @@ class OS():
                 self.p_list.append(process)
 
         self.__do_state_change()
-        self.global_time = min_time
 
     def load_mnemonics(self) -> Dict:
         """ Método auxiliar que apenas carrega os mneumônicos em memória.
@@ -341,7 +340,7 @@ class OS():
             increment_pc (bool): variável auxiliar
         """
 
-        self.ready_list.pop(0)
+        # self.ready_list.pop(0)
         if index == '0':
             process.state = State.EXIT
             process.end_time = self.global_time
@@ -349,6 +348,8 @@ class OS():
 
         process.state = State.BLOCKED_SUSPENDED
         process.blocked_time = randint(1, 8)
+        # process.blocked_time = 1
+        print(f"Blocked Time: {process.blocked_time}")
         if index == '1':
             pass
         elif index == '2':
@@ -365,6 +366,8 @@ class OS():
 
         for process in blocked_processes:
             process.blocked_time -= 1
+
+        self.__do_state_change()
 
     def __get_min_process_index(self, lst: List) -> None:
         """ Método que que pega o processo que tem menor prioridade de uma lista.
@@ -392,11 +395,14 @@ class OS():
         queue = [p for p in queue if p.state == states[block_or_ready]] #cleaning
 
         for process in state_changeable_processes:
+            processes_pid = {p.pid for p in queue}
+
+            if process.pid in processes_pid: continue # if processe alredy in queue
+
             if len(queue) < self.memory_capacity:
-                if process not in queue:
-                    process.state = states[block_or_ready]
-                    queue.append(process)
-                    queue.sort(reverse=True)
+                process.state = states[block_or_ready]
+                queue.append(process)
+                queue.sort(reverse=True)
                 continue
 
             min_process_idx = self.__get_min_process_index(queue)
@@ -435,7 +441,8 @@ class OS():
         """ Método que faz o escalonamento de ambas as filas READY e BLOCKED. """
 
         # READY LIST
-        func_ready = lambda p : p.arrival_time <= self.global_time and p.blocked_time <= 0 and p.state != State.EXIT
+        states_not_ready = [State.EXIT, State.RUNNING]
+        func_ready = lambda p : p.arrival_time <= self.global_time and p.blocked_time <= 0 and p.state not in states_not_ready
         states = (State.READY, State.READY_SUSPENDED)
         ready_states = list(filter(func_ready, self.p_list))
         self.ready_list = self.__handle_queues(ready_states, self.ready_list, states)
@@ -447,37 +454,44 @@ class OS():
         blocked_suspended_states = list(filter(func_blocked_suspended, self.p_list))
         self.blocked_list = self.__handle_queues(blocked_suspended_states, self.blocked_list, states)
 
+        print_queues(self.p_list)
+
+
     def exec_processes(self) -> None:
         " Método que de fato executa um processo, seguindo o quantum do sistema. "
 
         while self.ready_list or self.blocked_list:
             print_queues(self.p_list)
+            input(">>")
             process = self.ready_list[0] if self.ready_list else None
 
             if process:                
-                print(f'Running: {process}')
                 state_breaker = [State.EXIT, State.BLOCKED_SUSPENDED]
                 process.state = State.RUNNING
-                print_queues(self.p_list)
+                self.__do_state_change()
+                # print_queues(self.p_list)
                 
                 if process.start_time < 0: process.start_time = self.global_time
                 
                 for i in range(self.quantum):
+                    input(">>")
+                    process.process_time += 1
                     calc_waiting_time(self.p_list)
                     self.__decrement_blocked_times()
-                    self.run_process(process)
                     self.global_time += 1
+                    self.__do_state_change()
+                    print(f'Running: {process}')
+                    self.run_process(process)
                     if process.state in state_breaker or self.__should_exit(process):
-                        self.__do_state_change()
+                        input(">>")
                         break
-                input(">>")
             else:
                 self.global_time += 1
                 self.__decrement_blocked_times()
-                calc_waiting_time(self.p_list)
                 
             self.__do_state_change()
-        calc_process_time(self.p_list)
+            # calc_waiting_time(self.p_list)
+        # calc_process_time(self.p_list)
         calc_turnaround_time(self.p_list)
         print_queues(self.p_list)
         print("\n\n")

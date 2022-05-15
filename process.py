@@ -3,9 +3,9 @@ from enum import Enum
 
 class State(Enum):
     NEW = 'New'
+    RUNNING = 'Running'
     READY = 'Ready'
     READY_SUSPENDED = 'Ready/Suspended'
-    RUNNING = 'Running'
     BLOCKED = 'Blocked'
     BLOCKED_SUSPENDED = 'Blocked/Suspended'
     EXIT = 'Exit'
