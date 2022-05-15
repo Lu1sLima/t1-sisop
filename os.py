@@ -5,6 +5,7 @@ import json
 from random import randint
 
 from process import Process, State, Priority
+from utils import calc_process_time, calc_turnaround_time, calc_waiting_time, print_queues, print_statistics
 from typing import List, Tuple, Dict
 
 class OS():
@@ -57,7 +58,7 @@ class OS():
         
         self.exec_instruction(process, instruction, increment_pc)
         print(f'Executing: {instruction}, Acc: {process.last_acc}, Global Time: {self.global_time}')
-        time.sleep(2)
+        # time.sleep(2)
 
     def __parse_code(self, code_string: str) -> Tuple[List[str], Dict]:
         """ Método responsável por fazer o parsing da string que contém
@@ -188,23 +189,6 @@ class OS():
             target (int/str): target == #constante ou target == var (variavel declarada no .data)
         """
         return  int(target.split("#")[1]) if "#" in target else int(process.data[target])    
-
-
-    def __print_queues(self) -> None:
-        """ Método auxiliar utilizado apenas para fazer o print
-        das filas de (Ready/Blocked, ...) """
-
-        time.sleep(2)
-        os.system('cls' if os.name == 'nt' else 'clear') #clear console
-        biggest = len(f"| {State.BLOCKED_SUSPENDED.value} {self.p_list} |")
-        for state in State:
-            processes_in_state = list(filter(lambda p : p.state == state, self.p_list))
-            print_str = f"| {state.value} Queue: {processes_in_state}"
-            print_str += f'{" " * (biggest - len(print_str)-1)}|' # output prettier
-            line = "-" * biggest
-            print(line)
-            print(print_str)
-        print(line)
 
     def __is_label(self, instruction: str) -> bool:
         """ Método que verifica se uma instrução é uma label
@@ -347,30 +331,6 @@ class OS():
 
             process.last_label_pc = 0
 
-    def __calc_process_time(self) -> None:
-        """ Método auxiliar que calcula o process time de cada processo """
-
-        total_running_time = 0
-        for p in self.p_list:
-            total_running_time = (p.end_time - p.arrival_time) - p.waiting_time
-            p.process_time = total_running_time
-
-    def __calc_turn_around_time(self) -> None:
-        """ Método auxiliar que calcula o turnaround time de cada processo """
-
-        for p in self.p_list:
-            if p.state == State.EXIT:
-                p.turn_around_time = p.end_time - p.start_time
-    
-    def __calc_waiting_time(self) -> None:
-        """ Método auxiliar que calcula o waiting time de cada processo """
-
-        states_not_waiting = [State.NEW, State.RUNNING, State.EXIT]
-        for process in self.p_list:
-            if process.state not in states_not_waiting:
-                process.waiting_time += 1
-
-
     def system_instructions(self, process: Process, index: int, increment_pc: bool) -> None:
         """ Método que trata as instruções de chamada de sistema.
         Manda o processo para BLOCKED/SUSPENDED quando corre um bloqueio.
@@ -491,19 +451,19 @@ class OS():
         " Método que de fato executa um processo, seguindo o quantum do sistema. "
 
         while self.ready_list or self.blocked_list:
-            self.__print_queues()
+            print_queues(self.p_list)
             process = self.ready_list[0] if self.ready_list else None
 
             if process:                
                 print(f'Running: {process}')
                 state_breaker = [State.EXIT, State.BLOCKED_SUSPENDED]
                 process.state = State.RUNNING
-                self.__print_queues()
+                print_queues(self.p_list)
                 
                 if process.start_time < 0: process.start_time = self.global_time
                 
                 for i in range(self.quantum):
-                    self.__calc_waiting_time()
+                    calc_waiting_time(self.p_list)
                     self.__decrement_blocked_times()
                     self.run_process(process)
                     self.global_time += 1
@@ -514,12 +474,14 @@ class OS():
             else:
                 self.global_time += 1
                 self.__decrement_blocked_times()
-                self.__calc_waiting_time()
+                calc_waiting_time(self.p_list)
                 
             self.__do_state_change()
-        self.__calc_process_time()
-        self.__calc_turn_around_time()
-        self.__print_queues()
+        calc_process_time(self.p_list)
+        calc_turnaround_time(self.p_list)
+        print_queues(self.p_list)
+        print("\n\n")
+        print_statistics(self.p_list)
 
 
 if __name__ == "__main__":
