@@ -169,8 +169,10 @@ class OS():
                                 labels, data_dict, State.NEW, 
                                 arrival_time)
                 self.p_list.append(process)
-
+        print_queues(self.p_list)
+        input(">>")
         self.__do_state_change()
+        input(">>")
 
     def load_mnemonics(self) -> Dict:
         """ Método auxiliar que apenas carrega os mneumônicos em memória.
