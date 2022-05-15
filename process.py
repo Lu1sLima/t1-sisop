@@ -100,6 +100,16 @@ class Process():
         return f"PID {self.pid} ({self.priority}), AT: {self.arrival_time}, STATE: {self.state.value}"
 
     def get_value(self, value_search: str) -> str:
+        """ Método auxiliar para pegar os atributos da classe de acordo com
+        uma string
+
+        Args:
+            value_search (str): string para pegar atributo da classe
+
+        Returns:
+            str: valor do atributo como string
+        """
+
         value_search = value_search.lower().replace("|", "").strip()
 
         if value_search == "process":

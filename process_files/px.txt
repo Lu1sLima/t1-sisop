@@ -1,0 +1,12 @@
+.code
+    LOAD variable
+    ponto1: SUB #1
+    SYSCALL 0
+    BRPOS ponto1
+    SYSCALL 0
+.endcode
+
+.data
+    variable 10
+    a -99
+.enddata

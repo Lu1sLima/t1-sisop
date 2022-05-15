@@ -22,20 +22,10 @@ def calc_waiting_time(process_list: List[Process]) -> None:
             process.waiting_time += 1
 
 
-def calc_process_time(process_list: List[Process]) -> None:
-    """ Método auxiliar que calcula o process time de cada processo """
-
-    total_running_time = 0
-    for p in process_list:
-        total_running_time = (p.end_time - p.arrival_time) - p.waiting_time
-        p.process_time = total_running_time
-
-
 def print_queues(process_list: List[Process]) -> None:
     """ Método auxiliar utilizado apenas para fazer o print
     das filas de (Ready/Blocked, ...) """
 
-    # time.sleep(2)
     os.system('cls' if os.name == 'nt' else 'clear') #clear console
     biggest = len(f"| {State.BLOCKED_SUSPENDED.value} {process_list} |")
     for state in State:
@@ -63,7 +53,7 @@ def print_statistics(process_list: List[Process]) -> None:
     turnaround_time = " TURNAROUND_TIME |"
     header_list = [process_h, arrival_time, start_time, end_time, process_time, waiting_time, turnaround_time]
     header += "".join(header_list)
-    # header += "|"
+
     line = "-" * len(header)
     print(line)
     print(header)

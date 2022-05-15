@@ -1,20 +1,15 @@
 {
-  "quantum": 5,
+  "quantum": 50,
   "memory": 2,
   "processes": [
     {
-      "filename": "process_files/prog2.txt",
-      "priority": "HIGH",
+      "filename": "process_files/p1.txt",
+      "priority": "MEDIUM",
       "arrival_time": 0
     },
     {
-      "filename": "process_files/p1.txt",
+      "filename": "process_files/px.txt",
       "priority": "MEDIUM",
-      "arrival_time": 2
-    },
-    {
-      "filename": "process_files/prog3.txt",
-      "priority": "HIGH",
       "arrival_time": 0
     }
   ]

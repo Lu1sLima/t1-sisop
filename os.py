@@ -5,7 +5,7 @@ import json
 from random import randint
 
 from process import Process, State, Priority
-from utils import calc_process_time, calc_turnaround_time, calc_waiting_time, print_queues, print_statistics
+from utils import calc_turnaround_time, calc_waiting_time, print_queues, print_statistics
 from typing import List, Tuple, Dict
 
 class OS():
@@ -39,6 +39,9 @@ class OS():
         
         label, label_pc = process.last_label, process.last_label_pc
 
+        # process.labels = {'label': [instru_1, ..., instru_n]}
+        # Logo, process.labels['label'][0] = instru_1
+
         if label:
             if label_pc < len(process.labels[label]):
                 instruction = process.labels[label][label_pc]
@@ -58,7 +61,6 @@ class OS():
         
         self.exec_instruction(process, instruction, increment_pc)
         print(f'Executing: {instruction}, Acc: {process.last_acc}, Global Time: {self.global_time}')
-        # time.sleep(2)
 
     def __parse_code(self, code_string: str) -> Tuple[List[str], Dict]:
         """ Método responsável por fazer o parsing da string que contém
@@ -197,13 +199,14 @@ class OS():
 
         Returns:
             bool
-        """
 
-        # instruction = "loop"
-        # instruction.split(" ") = ["loop"] 
-        # ou
-        # instruction = "LOAD var"
-        # instruction.split(" ") = ["LOAD", "var"]
+        e.g.,
+            instruction = "loop"
+            instruction.split(" ") = ["loop"] 
+            ou
+            instruction = "LOAD var"
+            instruction.split(" ") = ["LOAD", "var"]
+        """
         return  len(instruction.split(" ")) == 1 
 
     def exec_instruction(self, process: Process, instruction: str, increment_pc: bool) -> None:
@@ -243,10 +246,12 @@ class OS():
             target (str): variável alvo
             process (Process): processo sendo executado
             increment_pc (bool): variável auxiliar
-        """
 
-        # se tiver o (#) na frente => enderecamento imediato (target)
-        # se NAO tiver o (#) na frente => enderecamento direto (o valor dessa variavel target precisa ser capturada no campo .data)
+        e.g.,
+            se tiver o (#) na frente => enderecamento imediato (target)
+            se NAO tiver o (#) na frente => enderecamento direto (o valor dessa variavel target 
+            precisa ser capturada no campo .data)
+        """
 
         if op == "LOAD":
             target = self.get_target_value(target, process)
@@ -344,15 +349,14 @@ class OS():
             increment_pc (bool): variável auxiliar
         """
 
-        # self.ready_list.pop(0)
         if index == '0':
             process.state = State.EXIT
             process.end_time = self.global_time
             return
 
         process.state = State.BLOCKED_SUSPENDED
-        process.blocked_time = randint(1, 8)
-        # process.blocked_time = 1
+        # process.blocked_time = randint(1, 8)
+        process.blocked_time = 1
         print(f"Blocked Time: {process.blocked_time}")
         if index == '1':
             pass
@@ -405,8 +409,8 @@ class OS():
 
             if len(queue) < self.memory_capacity:
                 process.state = states[block_or_ready]
-                queue.append(process)
-                queue.sort(reverse=True)
+                queue.append(process) # Round Robin, adiciona no final da fila
+                queue.sort(reverse=True) # Porém, reorganiza por prioridade (injustiça)
                 continue
 
             min_process_idx = self.__get_min_process_index(queue)
@@ -466,36 +470,43 @@ class OS():
 
         while self.ready_list or self.blocked_list:
             print_queues(self.p_list)
-            input(">>")
             process = self.ready_list[0] if self.ready_list else None
 
             if process:                
                 state_breaker = [State.EXIT, State.BLOCKED_SUSPENDED]
                 process.state = State.RUNNING
                 self.__do_state_change()
-                # print_queues(self.p_list)
                 
+                next_state = State.READY_SUSPENDED
+
                 if process.start_time < 0: process.start_time = self.global_time
                 
-                for i in range(self.quantum):
+                for _ in range(self.quantum):
                     input(">>")
                     process.process_time += 1
+
                     calc_waiting_time(self.p_list)
                     self.__decrement_blocked_times()
+
                     self.global_time += 1
+
                     self.__do_state_change()
+
                     print(f'Running: {process}')
                     self.run_process(process)
+
                     if process.state in state_breaker or self.__should_exit(process):
+                        next_state = process.state
                         input(">>")
                         break
+
+                process.state = next_state
             else:
+                time.sleep(2)
                 self.global_time += 1
                 self.__decrement_blocked_times()
                 
             self.__do_state_change()
-            # calc_waiting_time(self.p_list)
-        # calc_process_time(self.p_list)
         calc_turnaround_time(self.p_list)
         print_queues(self.p_list)
         print("\n\n")
